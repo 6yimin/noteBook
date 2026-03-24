@@ -187,7 +187,7 @@ void Widget::on_comboBox_currentIndexChanged(int index)
     // *[优化4] 这行返回值未使用，属于无意义代码，建议删除
 
     if(file.isOpen()){
-        disconnect(ui->textEdit, &QTextEdit::cursorPositionChanged, this, &Widget::on_CursorPositionChanged);
+
         ui->textEdit->clear();
         //ui->textEdit   指访问ui指向的对象里的textEdit成员
 
@@ -351,6 +351,7 @@ void Widget::on_btnsavefile_clicked()
 
     //file.close();
     // *[优化19] 保存后应 flush 确保数据写入磁盘
+    //不调用 flush：数据可能还在缓冲区，没真正写到硬盘。如果程序崩溃或断电，数据就丢了。
     file.flush();
     // *[优化20] 保存成功可给用户反馈
     QMessageBox::information(this, "提示", "文件保存成功！");
@@ -360,6 +361,10 @@ void Widget::on_btnsavefile_clicked()
     QString title = this->windowTitle();
     if(title.startsWith("*")){
         this->setWindowTitle(title.mid(1));  // mid(1)去掉第一个字符*
+        //例:QString mid(int position) const;   //从第 position 个位置开始,截取到字符串最后
+        //字符位置：0 1  2  3  4
+        //        * 未 保 存
+        //mid(n) = 去掉前 n 个字符
     }
 }
 
