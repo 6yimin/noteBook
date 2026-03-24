@@ -19,6 +19,7 @@
 #include <QMenuBar>  // 菜单栏
 #include <QMenu>     // 菜单
 #include <QAction>   // 菜单项
+#include <QCloseEvent>  // 关闭事件
 // [优化1] 头文件精简: 只保留必要的头文件，其他放到.cpp中
 // [优化2] 移除 <iostream>，Qt项目使用 qDebug/qInfo 替代 cout
 // [优化3] <QDialog>/<QString>/<QFileDialog>/<QObject> 移到.cpp按需包含
@@ -56,6 +57,11 @@ private slots:
     void on_comboBox_currentIndexChanged(int index);
 
     void on_CursorPositionChanged();
+
+    void onTextChanged();          // 监听文本变化，标题加*
+
+protected:
+    void closeEvent(QCloseEvent *event) override;  // 重写关闭事件
 
 private:
     Ui::widget *ui;// 声明一个指针，类型是"Ui命名空间里的widget类" Ui::widget 是指QT的类

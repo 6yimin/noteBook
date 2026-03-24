@@ -6,6 +6,7 @@
 #include <QDebug>
 #include <QTextStream>
 #include <QMenuBar>
+#include <QUndoStack>
 
 // [优化] 将头文件集中在cpp文件顶部，按Qt类名排序，方便查找
 
@@ -59,6 +60,21 @@ Widget::Widget(QWidget *parent)
     //   2. menu->addAction("打开(&O)", this, SLOT(on_btnopenfile_clicked())) 绑定
     //   3. QAction自带 setShortcut(QKeySequence("Ctrl+O")) 设置快捷键
     // ============================================================
+    //    我想做一个菜单栏
+    //        ↓
+    //    查手册：QMenuBar 怎么用？
+    //        ↓
+    //    手册说：menuBar->addMenu() 可以添加菜单
+    //        ↓
+    //    我写：menuBar->addMenu("文件")
+    
+    //    我想在菜单里加一个"打开"选项
+    //        ↓
+    //    查手册：QMenu 怎么加菜单项？
+    //        ↓
+    //    手册说：menu->addAction() 可以添加动作
+    //        ↓
+    //    我写：fileMenu->addAction("打开")
 
     // [重点记] QMenuBar创建菜单栏, QMenu创建下拉菜单, QAction创建菜单项
     QMenuBar *menuBar = new QMenuBar();                  // 创建菜单栏（不写this，后面手动放到布局里）
@@ -72,7 +88,7 @@ Widget::Widget(QWidget *parent)
     // ===== 文件菜单 =====
     // [重点记] 三步走：1.创建菜单项 2.设快捷键 3.绑定函数
     QAction *openAction = fileMenu->addAction("打开(&O)");           // 创建"打开"菜单项
-    openAction->setShortcut(QKeySequence("Ctrl+O"));                 // 设置快捷键Ctrl+O
+    openAction->setShortcut(QKeySequence("Ctrl+O"));                // 设置快捷键Ctrl+O
     connect(openAction, &QAction::triggered, this, &Widget::on_btnopenfile_clicked);  // 点击时调用打开函数
 
     QAction *saveAction = fileMenu->addAction("保存(&S)");
@@ -113,14 +129,44 @@ Widget::Widget(QWidget *parent)
     // [重点记] 把菜单栏放到widget_2的布局里
     ui->horizontalLayout->insertWidget(0, menuBar);  // 把menuBar插入到horizontalLayout的第0个位置（最左边）
 
+    // ===== 任务2：文件修改检测 =====
+    // [重点记] 监听textChanged信号，内容变化时标题加*
+    connect(ui->textEdit, &QTextEdit::textChanged, this, &Widget::onTextChanged);
+}
 
+// ===== onTextChanged：文本变化时触发 =====
+void Widget::onTextChanged()
+{
+    // 如果标题还没有*号，就加上
+    if(!this->windowTitle().startsWith("*")){
+        this->setWindowTitle("*" + this->windowTitle());
+    }
+}
 
-
-
+// ===== closeEvent：关闭窗口时触发 =====
+void Widget::closeEvent(QCloseEvent *event)
+{
+    // 判断标题是否以*开头（表示有未保存的修改）
+    if(this->windowTitle().startsWith("*")){
+        int ret = QMessageBox::warning(this, "提示",
+                                       "当前文档未保存，是否保存？",
+                                       QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel,
+                                       QMessageBox::Save);
+        if(ret == QMessageBox::Save){
+            on_btnsavefile_clicked();  // 保存
+            event->accept();           // 允许关闭
+        } else if(ret == QMessageBox::Discard){
+            event->accept();           // 不保存，直接关闭
+        } else {
+            event->ignore();           // 取消，不关闭
+        }
+    } else {
+        event->accept();               // 没有修改，直接关闭
+    }
+}
     // 点击"打开"时，调用你已有的 on_btnopenfile_clicked 函数
 
 
-}
 
 Widget::~Widget()
 {
@@ -239,7 +285,12 @@ void Widget::on_btnopenfile_clicked()
 //                ui->textEdit->append(text);
 //            }
             QString allText = read.readAll();
+
+            // [重点记] 先断开textChanged信号，避免读取内容时触发onTextChanged导致标题加*
+            disconnect(ui->textEdit, &QTextEdit::textChanged, this, &Widget::onTextChanged);
             ui->textEdit->setText(allText);
+            // 读取完后重新连接
+            connect(ui->textEdit, &QTextEdit::textChanged, this, &Widget::onTextChanged);
 
             // *[优化14] 不关闭文件，保持打开状态
             // 这样点保存时file.isOpen()是true，直接覆盖保存，不用再弹窗选文件
@@ -256,12 +307,12 @@ void Widget::on_btnsavefile_clicked()
         QString fileName = QFileDialog::getSaveFileName(this,tr("Save file"),
                                                         //"D:/Qt/code/SigSlot",
                                                         // [优化15] 硬编码路径"D:/Qt/code/SigSlot"不灵活
-                                                        // 应使用 QDir::homePath() 或
-                                                        QApplication::applicationDirPath(),
+                                                        // 应使用 QDir::homePath()或QApplication::applicationDirPath(),
+                                                        QDir::homePath(),
                                                         tr("Text (*.txt *.doc)"));
         qDebug() << fileName;
         if(fileName.isEmpty()){
-            qDebug() << "用户取消了文件保存!" << endl;
+            qDebug() << "用户取消了文件保存!";
             return;
         }
         //QFile file(fileName);
@@ -299,6 +350,12 @@ void Widget::on_btnsavefile_clicked()
     // *[优化20] 保存成功可给用户反馈
     QMessageBox::information(this, "提示", "文件保存成功！");
     qDebug() << "文件保存成功!";
+
+    // [重点记] 保存成功后去掉标题的*号
+    QString title = this->windowTitle();
+    if(title.startsWith("*")){
+        this->setWindowTitle(title.mid(1));  // mid(1)去掉第一个字符*
+    }
 }
 
 
@@ -334,8 +391,8 @@ void Widget::on_btnclosefile_clicked()
         // *[优化23] 这段代码在Discard和Cancel时也会执行，逻辑有误
         // 应该放在 case QMessageBox::Save 和 case QMessageBox::Discard 中
         if(file.isOpen()){
-
             file.close();
+            ui->textEdit->clear();
             this->setWindowTitle("小刘记事本");
         }
           break;
@@ -358,7 +415,7 @@ void Widget::on_btnclosefile_clicked()
           break;
     }
 
-    ui->textEdit->clear();
+    //ui->textEdit->clear();
 }
 
 void Widget::on_CursorPositionChanged()
@@ -377,18 +434,6 @@ void Widget::on_CursorPositionChanged()
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
 // ============================================================
 // 【任务2】撤销/重做 + 文件修改检测
 // 学习点: QUndoStack, QTextDocument::isModified()
@@ -400,6 +445,11 @@ void Widget::on_CursorPositionChanged()
 //   2. 监听 textChanged() 信号，修改标题: setWindowTitle("*" + title)
 //   3. 重写 closeEvent()，判断 isModified()，弹窗询问是否保存
 // ============================================================
+
+    //QUndoStack undo;
+    //void QUndoStack::redoTextChanged(const QString &redoText)
+
+
 
 // ============================================================
 // 【任务3】查找替换
