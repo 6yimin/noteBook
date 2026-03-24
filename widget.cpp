@@ -143,6 +143,7 @@ void Widget::onTextChanged()
     }
 }
 
+
 // ===== closeEvent：关闭窗口时触发 =====
 void Widget::closeEvent(QCloseEvent *event)
 {
@@ -154,6 +155,7 @@ void Widget::closeEvent(QCloseEvent *event)
                                        QMessageBox::Save);
         if(ret == QMessageBox::Save){
             on_btnsavefile_clicked();  // 保存
+            // 点击"打开"时，调用你已有的 on_btnopenfile_clicked 函数
             event->accept();           // 允许关闭
         } else if(ret == QMessageBox::Discard){
             event->accept();           // 不保存，直接关闭
@@ -164,7 +166,6 @@ void Widget::closeEvent(QCloseEvent *event)
         event->accept();               // 没有修改，直接关闭
     }
 }
-    // 点击"打开"时，调用你已有的 on_btnopenfile_clicked 函数
 
 
 
@@ -186,6 +187,7 @@ void Widget::on_comboBox_currentIndexChanged(int index)
     // *[优化4] 这行返回值未使用，属于无意义代码，建议删除
 
     if(file.isOpen()){
+        disconnect(ui->textEdit, &QTextEdit::cursorPositionChanged, this, &Widget::on_CursorPositionChanged);
         ui->textEdit->clear();
         //ui->textEdit   指访问ui指向的对象里的textEdit成员
 
@@ -219,6 +221,7 @@ void Widget::on_comboBox_currentIndexChanged(int index)
         // *[优化7] 被注释掉的 readAll() 方式更简洁，可以考虑使用
         QString allText = read.readAll();
         ui->textEdit->setText(allText);
+
     }
 
 }
@@ -245,6 +248,10 @@ void Widget::on_btnopenfile_clicked()
         // 遍历用户选的每个文件
         for(QString str : files){
             qDebug() << str;
+
+            // [重点记] 先断开textChanged信号，避免clear和setText触发onTextChanged导致标题加*
+            disconnect(ui->textEdit, &QTextEdit::textChanged, this, &Widget::onTextChanged);
+
             ui->textEdit->clear();
             // [优化10] 多文件打开逻辑Bug: 循环内每次都clear，只有最后一个文件内容会显示
             // 如果要支持多文件，应该使用 QTabWidget 或 每次打开新窗口
@@ -285,11 +292,9 @@ void Widget::on_btnopenfile_clicked()
 //                ui->textEdit->append(text);
 //            }
             QString allText = read.readAll();
-
-            // [重点记] 先断开textChanged信号，避免读取内容时触发onTextChanged导致标题加*
-            disconnect(ui->textEdit, &QTextEdit::textChanged, this, &Widget::onTextChanged);
             ui->textEdit->setText(allText);
-            // 读取完后重新连接
+
+            // 读取完后重新连接textChanged信号
             connect(ui->textEdit, &QTextEdit::textChanged, this, &Widget::onTextChanged);
 
             // *[优化14] 不关闭文件，保持打开状态
@@ -387,7 +392,7 @@ void Widget::on_btnclosefile_clicked()
       case QMessageBox::Save:
         // Save was clicked
         on_btnsavefile_clicked();
-        qDebug() << "文件已保存";
+        //qDebug() << "文件已保存";
         // *[优化23] 这段代码在Discard和Cancel时也会执行，逻辑有误
         // 应该放在 case QMessageBox::Save 和 case QMessageBox::Discard 中
         if(file.isOpen()){
