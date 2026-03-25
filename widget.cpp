@@ -1,14 +1,12 @@
 #include "widget.h"
 #include "ui_widget.h"
+#include "finddialog.h"
+#include "replacedialog.h"
+#include <QTextEdit>
+#include <QTextCursor>
+#include <QTextDocument>
 
-#include <QMessageBox>
-#include <QFileDialog>
-#include <QDebug>
-#include <QTextStream>
-#include <QMenuBar>
-#include <QUndoStack>
 
-// [优化] 将头文件集中在cpp文件顶部，按Qt类名排序，方便查找
 
 //这是 Widget 类里面的 Widget 函数
 //类  :: 函数名，和类名相同，所以它是构造函数 (  (QWidget *parent)参数：一个叫parent的指针，指向QWidget )
@@ -78,7 +76,27 @@ Widget::Widget(QWidget *parent)
 
     // [重点记] QMenuBar创建菜单栏, QMenu创建下拉菜单, QAction创建菜单项
     QMenuBar *menuBar = new QMenuBar();                  // 创建菜单栏（不写this，后面手动放到布局里）
-    menuBar->setFixedHeight(38);                         // 固定高度
+
+    // ===== 菜单栏高度设置 =====
+    // [第1版代码] 固定高度38，但不同屏幕显示效果不同
+    //menuBar->setFixedHeight(38);
+
+    // [第2版代码] 设置菜单栏最小高度40，让菜单栏跟随widget_2高度
+    //menuBar->setFixedHeight(40);  // 最小高度40
+
+    //ui->horizontalLayout->insertWidget(0, menuBar);
+    //ui->horizontalLayout->setContentsMargins(0, 0, 0, 0);  // 去掉布局的内边距（上下左右都为0）
+    //ui->horizontalLayout->setSpacing(0);   // 去掉控件之间的间距
+    // ===== 菜单栏大小 =====
+    menuBar->setMinimumHeight(40);  // 最小高度 → 改这个数字
+    menuBar->setMinimumWidth(200);  // 最小宽度 → 加这个可以控制宽度
+
+    // ===== 菜单栏位置 =====
+    ui->horizontalLayout->insertWidget(0, menuBar);  // 0=最左边，改成1=第二个位置
+
+    // ===== 布局设置（影响所有控件） =====
+    ui->horizontalLayout->setContentsMargins(0, 0, 0, 0);  // 内边距：上 右 下 左
+    ui->horizontalLayout->setSpacing(0);                      // 控件之间的间距
 
     // [重点记] addMenu("文件(&F)") 添加菜单，(&F)表示Alt+F快捷键
     QMenu *fileMenu = menuBar->addMenu("文件(&F)");      // 添加"文件"菜单
@@ -125,6 +143,15 @@ Widget::Widget(QWidget *parent)
     QAction *aboutAction = helpMenu->addAction("关于");
     aboutAction->setShortcut(QKeySequence("Ctrl+T"));
 //    connect(aboutAction, &QAction::triggered, ui->textEdit, );
+
+    // [重点记] 在帮助菜单里添加查找和替换
+    QAction *findAction = helpMenu->addAction("查找(&F)");
+    findAction->setShortcut(QKeySequence("Ctrl+F"));
+    connect(findAction, &QAction::triggered, this, &Widget::onFind);
+
+    QAction *replaceAction = helpMenu->addAction("替换(&H)");
+    replaceAction->setShortcut(QKeySequence("Ctrl+H"));
+    connect(replaceAction, &QAction::triggered, this, &Widget::onReplace);
 
     // [重点记] 把菜单栏放到widget_2的布局里
     ui->horizontalLayout->insertWidget(0, menuBar);  // 把menuBar插入到horizontalLayout的第0个位置（最左边）
@@ -472,6 +499,112 @@ void Widget::on_CursorPositionChanged()
 //   2. 用 textEdit->find(keyword) 查找下一个
 //   3. 用 QTextEdit::ExtraSelection 高亮所有匹配项
 // ============================================================
+void Widget::onFind()
+{
+    static FindDialog *findDialog = nullptr;  // 静态变量，保持对话框状态
 
+    if(!findDialog){
+        findDialog = new FindDialog(this);
+
+        // [重点记] 查找下一个：高亮所有匹配 + 光标跳到下一个
+        connect(findDialog, &QDialog::accepted, this, [this](){
+            QString searchText = findDialog->getSearchText();
+            if(searchText.isEmpty()) return;
+
+            m_lastSearchText = searchText;  // 记住搜索文本
+
+            // 清除之前的高亮（不需要selectAll，那样会选中全部文本）
+            ui->textEdit->setExtraSelections({});
+
+            // [重点记] QTextEdit::ExtraSelection 用于高亮文本
+            QList<QTextEdit::ExtraSelection> selections;
+            QTextCursor cursor = ui->textEdit->textCursor();
+            cursor.movePosition(QTextCursor::Start);
+
+            // 查找所有匹配项并高亮
+            QTextCharFormat highlightFormat;
+            highlightFormat.setBackground(Qt::yellow);  // 黄色高亮
+
+            while(!cursor.isNull() && !cursor.atEnd()){
+                cursor = ui->textEdit->document()->find(searchText, cursor,
+                    findDialog->isCaseSensitive() ? QTextDocument::FindCaseSensitively : QTextDocument::FindFlags());
+                if(!cursor.isNull()){
+                    QTextEdit::ExtraSelection selection;
+                    selection.cursor = cursor;
+                    selection.format = highlightFormat;
+                    selections.append(selection);
+                }
+            }
+
+            ui->textEdit->setExtraSelections(selections);
+
+            // 光标跳到第一个匹配位置
+            cursor = ui->textEdit->document()->find(searchText,
+                ui->textEdit->textCursor(), QTextDocument::FindBackward);
+            if(!cursor.isNull()){
+                ui->textEdit->setTextCursor(cursor);
+            }
+        });
+    }
+
+    findDialog->show();
+    findDialog->raise();
+    findDialog->activateWindow();
+}
+
+void Widget::onReplace()
+{
+    static ReplaceDialog *replaceDialog = nullptr;
+
+    if(!replaceDialog){
+        replaceDialog = new ReplaceDialog(this);
+
+        // 逐个替换
+        connect(replaceDialog, &QDialog::accepted, this, [this](){
+            QString searchText = replaceDialog->getSearchText();
+            QString replaceText = replaceDialog->getReplaceText();
+            if(searchText.isEmpty()) return;
+
+            // 先尝试查找当前光标位置的匹配
+            bool found = ui->textEdit->find(searchText,
+                replaceDialog->isCaseSensitive() ? QTextDocument::FindCaseSensitively : QTextDocument::FindFlags());
+            if(found){
+                // 找到了，替换选中的文本
+                QTextCursor cursor = ui->textEdit->textCursor();
+                cursor.insertText(replaceText);
+
+                // [重点记] 替换后自动查找下一个
+                ui->textEdit->find(searchText,
+                    replaceDialog->isCaseSensitive() ? QTextDocument::FindCaseSensitively : QTextDocument::FindFlags());
+            }
+        });
+
+        // 全部替换
+        connect(replaceDialog, &ReplaceDialog::replaceAll, this, [this](){
+            QString searchText = replaceDialog->getSearchText();
+            QString replaceText = replaceDialog->getReplaceText();
+            if(searchText.isEmpty()) return;
+
+            QTextCursor cursor(ui->textEdit->document());
+            cursor.movePosition(QTextCursor::Start);
+
+            int count = 0;
+            while(!cursor.isNull() && !cursor.atEnd()){
+                cursor = ui->textEdit->document()->find(searchText, cursor,
+                    replaceDialog->isCaseSensitive() ? QTextDocument::FindCaseSensitively : QTextDocument::FindFlags());
+                if(!cursor.isNull()){
+                    cursor.insertText(replaceText);
+                    count++;
+                }
+            }
+
+            QMessageBox::information(this, "提示", QString("共替换 %1 处").arg(count));
+        });
+    }
+
+    replaceDialog->show();
+    replaceDialog->raise();
+    replaceDialog->activateWindow();
+}
 
 

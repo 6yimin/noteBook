@@ -8,6 +8,12 @@
 // 第一次include：WIDGET_H没定义，定义它，执行内容
 // 第二次include：WIDGET_H已定义了，跳过，不执行
 
+#include <QMessageBox>
+#include <QFileDialog>
+#include <QDebug>
+#include <QTextStream>
+#include <QMenuBar>
+#include <QUndoStack>
 #include <QWidget>
 #include <iostream>
 #include <QDebug>
@@ -59,6 +65,8 @@ private slots:
     void on_CursorPositionChanged();
 
     void onTextChanged();          // 监听文本变化，标题加*
+    void onFind();                  // 查找功能
+    void onReplace();               // 替换功能
 
 protected:
     void closeEvent(QCloseEvent *event) override;  // 重写关闭事件
@@ -76,10 +84,11 @@ private:
     //    │on_btnclosefile_clicked()│     │ QPushButton *btnsave│
     //    │                         │     │ QComboBox *comboBox │
     //    └─────────────────────────┘     └─────────────────────┘
-
+    QString m_lastSearchText;
 signals:
     //void
     // [优化10] signals 区块为空可以删除，不要留注释占位
+
 };
 
 #endif                // 结束 WIDGET_H
