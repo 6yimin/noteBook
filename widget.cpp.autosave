@@ -154,7 +154,7 @@ Widget::Widget(QWidget *parent)
     connect(replaceAction, &QAction::triggered, this, &Widget::onReplace);
 
     // [重点记] 把菜单栏放到widget_2的布局里
-    ui->horizontalLayout->insertWidget(5, menuBar);  // 把menuBar插入到horizontalLayout的第0个位置（最左边）
+    ui->horizontalLayout->insertWidget(0, menuBar);  // 把menuBar插入到horizontalLayout的第0个位置（最左边）
 
     // ===== 任务2：文件修改检测 =====
     // [重点记] 监听textChanged信号，内容变化时标题加*
@@ -499,6 +499,31 @@ void Widget::on_CursorPositionChanged()
 //   2. 用 textEdit->find(keyword) 查找下一个
 //   3. 用 QTextEdit::ExtraSelection 高亮所有匹配项
 // ============================================================
+
+
+//为什么要分两步？
+//因为FindDialog 和 Widget 是两个独立的类，它们不能直接互相访问对方的控件。
+
+//如果直接在按钮点击时做高亮
+// 在 FindDialog 里
+//connect(findNextBtn, &QPushButton::clicked, this, [this](){
+//    // 问题：FindDialog 里没有 ui->textEdit
+//    // FindDialog 不知道主窗口的文本框在哪
+//    ui->textEdit->find(...);  // ❌ 找不到 ui
+//});
+//FindDialog 只是一个弹窗，它不知道主窗口有什么控件。
+
+//正确的做法：分工明确
+//FindDialog（弹窗）
+//  ├── 职责：收集用户输入（搜索文字）
+//  ├── 用户点按钮 → 调用 accept() → 关闭弹窗 → 发出 accepted 信号
+//  └── 不负责：查找和高亮（它不知道文本框在哪）
+
+//Widget（主窗口）
+//  ├── 职责：监听 accepted 信号
+//  ├── 收到信号 → 取到用户输入 → 执行查找和高亮
+//  └── 负责：实际的查找逻辑（它有 ui->textEdit）
+// 因为查找显示高亮是在ui->textEdit里显示出来的
 void Widget::onFind()
 {
     static FindDialog *findDialog = nullptr;  // 静态变量，保持对话框状态
@@ -507,9 +532,12 @@ void Widget::onFind()
         findDialog = new FindDialog(this);
 
         // [重点记] 查找下一个：高亮所有匹配 + 光标跳到下一个
+        //connect(发送者, &发送者类::信号, 接收者, &接收者类::槽函数);
+        //前面finddialog.cpp里还有个connect(findNextBtn, &QPushButton::clicked, this, &QDialog::accept);
+        //相当于connect(findDialog,&QDialog::accepted,this,&QWidget::onAccept){
         connect(findDialog, &QDialog::accepted, this, [this](){
             QString searchText = findDialog->getSearchText();
-            if(searchText.isEmpty()) return;
+            if(searchText.isEmpty()) return;  //跳出 lambda（匿名函数）
 
             m_lastSearchText = searchText;  // 记住搜索文本
 
@@ -551,6 +579,7 @@ void Widget::onFind()
     findDialog->raise();
     findDialog->activateWindow();
 }
+
 
 void Widget::onReplace()
 {

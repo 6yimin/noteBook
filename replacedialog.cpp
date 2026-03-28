@@ -4,7 +4,7 @@ ReplaceDialog::ReplaceDialog(QWidget *parent)
     : QDialog(parent)
 {
     setWindowTitle("替换");
-    setFixedSize(500, 200);  // 改大窗口大小
+    resize(510, 200);  // 初始大小510x200，但可以缩放（不设固定大小）
 
     searchEdit = new QLineEdit(this);
     searchEdit->setMinimumHeight(35);  // 输入框最小高度
@@ -14,12 +14,15 @@ ReplaceDialog::ReplaceDialog(QWidget *parent)
 
     replaceBtn = new QPushButton("替换", this);
     replaceBtn->setMinimumSize(80, 40);  // 按钮最小大小
+    replaceBtn->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);  // 宽度可跟随窗口缩放
 
     replaceAllBtn = new QPushButton("全部替换", this);
-    replaceAllBtn->setMinimumSize(160, 40);  // 全部替换按钮是替换按钮的两倍
+    replaceAllBtn->setMinimumSize(80, 40);  // 按钮最小大小（改为80，和替换按钮一样）
+    replaceAllBtn->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);  // 宽度可跟随窗口缩放
 
     cancelBtn = new QPushButton("取消", this);
     cancelBtn->setMinimumSize(80, 40);  // 按钮最小大小
+    cancelBtn->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);  // 宽度可跟随窗口缩放
 
     caseCheckBox = new QCheckBox("区分大小写", this);
     caseCheckBox->setMinimumHeight(40);  // 复选框最小高度
@@ -34,6 +37,7 @@ ReplaceDialog::ReplaceDialog(QWidget *parent)
     hLayout2->addWidget(replaceEdit);
 
     QHBoxLayout *hLayout3 = new QHBoxLayout;
+    hLayout3->setSpacing(4);  // 按钮之间的间距为4像素
     hLayout3->addWidget(caseCheckBox);
     hLayout3->addStretch();
     hLayout3->addWidget(replaceBtn);
