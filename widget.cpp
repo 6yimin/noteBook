@@ -518,17 +518,29 @@ void Widget::on_btnclosefile_clicked()
 
 void Widget::on_CursorPositionChanged()
 {
-
     QTextCursor cursor = ui->textEdit->textCursor();
-    qDebug() << "第" << cursor.blockNumber() + 1 << "行" << "第" << cursor.columnNumber() + 1 << "列";
     // *[优化24] qDebug可删除，只保留UI显示即可
-    QString blockNum = QString::number(cursor.blockNumber() + 1);
-    QString columnNum = QString::number(cursor.columnNumber() + 1);
-    const QString cursorText = "第"+blockNum+"行"+"第"+columnNum+"列";
-    ui->horAndver->setText(cursorText);
-    // [优化25] 字符串拼接用 QStringLiteral 或 tr() 包裹，便于后续国际化
-    // [优化26] 可以用arg()方法更清晰:
-    // QString cursorText = QString("第%1行 第%2列").arg(cursor.blockNumber()+1).arg(cursor.columnNumber()+1);
+
+    // [重点记] 分页模式下显示行列+页码，普通模式只显示行列
+    if(!m_allLines.isEmpty()) {
+        // 分页模式：计算真实行号（当前页起始行 + 页内行号）
+        int realLine = m_currentPage * m_linesPerPage + cursor.blockNumber() + 1;
+        int columnNum = cursor.columnNumber() + 1;
+        int totalPages = (m_allLines.count() + m_linesPerPage - 1) / m_linesPerPage;
+
+        QString text = QString("第%1行 第%2列 | 第%3页/共%4页")
+                       .arg(realLine)
+                       .arg(columnNum)
+                       .arg(m_currentPage + 1)
+                       .arg(totalPages);
+        ui->horAndver->setText(text);
+    } else {
+        // 普通模式：只显示行列
+        QString blockNum = QString::number(cursor.blockNumber() + 1);
+        QString columnNum = QString::number(cursor.columnNumber() + 1);
+        QString text = QString("第%1行 第%2列").arg(blockNum).arg(columnNum);
+        ui->horAndver->setText(text);
+    }
 }
 
 
@@ -732,14 +744,7 @@ void Widget::showPage(int page)
     // 重新连接textChanged信号
     connect(ui->textEdit, &QTextEdit::textChanged, this, &Widget::onTextChanged);
 
-    // 在状态栏显示页码信息
-    int currentLine = start + 1;
-    int totalLines = m_allLines.count();
-    ui->horAndver->setText(QString("第%1行/共%2行 | 第%3页/共%4页")
-                           .arg(currentLine)
-                           .arg(totalLines)
-                           .arg(page + 1)
-                           .arg(totalPages));
+    // [已删除] 状态栏显示由 on_CursorPositionChanged 统一处理，避免重复显示
 }
 
 // [重点记] 下一页
