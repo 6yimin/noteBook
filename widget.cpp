@@ -81,15 +81,9 @@ Widget::Widget(QWidget *parent)
     // [第1版代码] 固定高度38，但不同屏幕显示效果不同
     //menuBar->setFixedHeight(38);
 
-    // [第2版代码] 设置菜单栏最小高度40，让菜单栏跟随widget_2高度
-    //menuBar->setFixedHeight(40);  // 最小高度40
-
-    //ui->horizontalLayout->insertWidget(0, menuBar);
-    //ui->horizontalLayout->setContentsMargins(0, 0, 0, 0);  // 去掉布局的内边距（上下左右都为0）
-    //ui->horizontalLayout->setSpacing(0);   // 去掉控件之间的间距
-    // ===== 菜单栏大小 =====
-    menuBar->setMinimumHeight(40);  // 最小高度 → 改这个数字
-    menuBar->setMinimumWidth(200);  // 最小宽度 → 加这个可以控制宽度
+    // [第2版代码] 设置菜单栏固定高度40，和widget_2一致
+    menuBar->setFixedHeight(40);  // 固定高度40，和widget_2一样
+    ui->widget_2->setFixedHeight(40);  // widget_2也固定40
 
     // ===== 菜单栏位置 =====
     ui->horizontalLayout->insertWidget(0, menuBar);  // 0=最左边，改成1=第二个位置
@@ -153,12 +147,104 @@ Widget::Widget(QWidget *parent)
     replaceAction->setShortcut(QKeySequence("Ctrl+H"));
     connect(replaceAction, &QAction::triggered, this, &Widget::onReplace);
 
+    // ===== 自动换行 =====
+    QAction *wordWrapAction = editMenu->addAction("自动换行(&W)");
+    wordWrapAction->setShortcut(QKeySequence("Ctrl+L"));  // 快捷键改为Ctrl+L
+    wordWrapAction->setCheckable(true);   // 设置为可勾选
+    wordWrapAction->setChecked(true);     // 默认勾选（开启自动换行）
+
+    connect(wordWrapAction, &QAction::toggled, this, [this](bool checked){
+        ui->textEdit->setWordWrapMode(checked ? QTextOption::WrapAtWordBoundaryOrAnywhere : QTextOption::NoWrap);
+    });  // [重点记] 注意：lambda 结尾是 }); 不是 }
+
     // [重点记] 把菜单栏放到widget_2的布局里
-    ui->horizontalLayout->insertWidget(5, menuBar);  // 把menuBar插入到horizontalLayout的第0个位置（最左边）
+    ui->horizontalLayout->insertWidget(0, menuBar);  // 把menuBar插入到horizontalLayout的第0个位置（最左边）
 
     // ===== 任务2：文件修改检测 =====
     // [重点记] 监听textChanged信号，内容变化时标题加*
     connect(ui->textEdit, &QTextEdit::textChanged, this, &Widget::onTextChanged);
+
+
+
+
+    // ===== 字体大小子菜单 =====
+    QMenu *fontSizeMenu = editMenu->addMenu("字体大小");  // 添加子菜单
+
+    // 添加几个固定大小选项
+    QAction *smallFont = fontSizeMenu->addAction("小 (12号)");
+    QAction *mediumFont = fontSizeMenu->addAction("中 (16号)");
+    QAction *largeFont = fontSizeMenu->addAction("大 (20号)");
+    QAction *xlargeFont = fontSizeMenu->addAction("特大 (24号)");
+
+    // 设置为可勾选
+    smallFont->setCheckable(true);
+    mediumFont->setCheckable(true);
+    largeFont->setCheckable(true);
+    xlargeFont->setCheckable(true);
+
+    // 默认选中"中"
+    mediumFont->setChecked(true);
+
+    // [重点记] 使用QActionGroup让它们互斥（只能选一个）
+    // 创建互斥组
+    // QActionGroup *group = new QActionGroup(this);
+    // group->addAction(action1);
+    // group->addAction(action2);
+    QActionGroup *fontGroup = new QActionGroup(this);
+    fontGroup->addAction(smallFont);
+    fontGroup->addAction(mediumFont);
+    fontGroup->addAction(largeFont);
+    fontGroup->addAction(xlargeFont);
+
+
+
+    // 不需要写任何互斥代码
+    // Qt 内部自动处理：点 action1 → action2 取消选中
+
+
+    // 连接信号 - 点击时调整字体大小
+    // [重点记] 调整字体前先清除高亮，防止崩溃
+    connect(smallFont, &QAction::triggered, this, [this](){
+        ui->textEdit->setExtraSelections({});  // 清除高亮
+        QFont font = ui->textEdit->font();
+        font.setPointSize(12);
+        ui->textEdit->setFont(font);
+    });
+
+    connect(mediumFont, &QAction::triggered, this, [this](){
+        ui->textEdit->setExtraSelections({});  // 清除高亮
+        QFont font = ui->textEdit->font();
+        font.setPointSize(16);
+        ui->textEdit->setFont(font);
+    });
+
+    connect(largeFont, &QAction::triggered, this, [this](){
+        ui->textEdit->setExtraSelections({});  // 清除高亮
+        QFont font = ui->textEdit->font();
+        font.setPointSize(20);
+        ui->textEdit->setFont(font);
+    });
+
+    connect(xlargeFont, &QAction::triggered, this, [this](){
+        ui->textEdit->setExtraSelections({});  // 清除高亮
+        QFont font = ui->textEdit->font();
+        font.setPointSize(24);
+        ui->textEdit->setFont(font);
+    });
+
+    // ===== 分页快捷键 =====
+    // [重点记] 用QShortcut而不是keyPressEvent，避免被QTextEdit覆盖
+    QShortcut *nextPageShortcut = new QShortcut(QKeySequence("Ctrl+Down"), this);
+    QShortcut *prevPageShortcut = new QShortcut(QKeySequence("Ctrl+Up"), this);
+    QShortcut *nextPageShortcut2 = new QShortcut(QKeySequence(Qt::Key_PageDown), this);
+    QShortcut *prevPageShortcut2 = new QShortcut(QKeySequence(Qt::Key_PageUp), this);
+
+    connect(nextPageShortcut, &QShortcut::activated, this, &Widget::nextPage);
+    connect(prevPageShortcut, &QShortcut::activated, this, &Widget::prevPage);
+    connect(nextPageShortcut2, &QShortcut::activated, this, &Widget::nextPage);
+    connect(prevPageShortcut2, &QShortcut::activated, this, &Widget::prevPage);
+
+
 }
 
 // ===== onTextChanged：文本变化时触发 =====
@@ -211,46 +297,24 @@ void Widget::on_comboBox_currentIndexChanged(int index)
 {
     // 打印：用户选了第几个选项（调试用）
     qDebug() << index << ui->comboBox->currentText();
-    // *[优化4] 这行返回值未使用，属于无意义代码，建议删除
 
     if(file.isOpen()){
-
-        ui->textEdit->clear();
-        //ui->textEdit   指访问ui指向的对象里的textEdit成员
-
-        //移动光标到文件开头
+        // 移动光标到文件开头
         file.seek(0);
 
-        //先移动光标再读取
-        // 文件就像磁带，读到一半想重新听，得倒带回去
+        // 用新编码重新读取
         QTextStream read(&file);
-
-        //QString c_str = ui->comboBox->currentText();
-        //const char *code = c_str.toStdString().c_str();
-        //read.setCodec(ui->comboBox->currentText().toStdString().c_str());
-
-        // *[优化5] setCodec在Qt6已废弃，Qt6使用setEncoding()
-        // *[优化6] toStdString().c_str() 的生命周期问题:
-        // c_str()返回的指针在临时string对象销毁后可能无效
-        // 应该先保存std::string对象:
         auto codec = ui->comboBox->currentText().toStdString();
-        // read.setCodec(codec.c_str());
         read.setCodec(codec.c_str());
 
-        //QString text = read.readLine();
-        //ui->textEdit->setText(text);
-
-//        while(!read.atEnd()){
-//            QString text = read.readLine();
-//            //ui->textEdit->setText(text);
-//            ui->textEdit->append(text);
-//        }
-        // *[优化7] 被注释掉的 readAll() 方式更简洁，可以考虑使用
+        // [重点记] 使用分页加载，避免大文件卡顿
+        // 读取所有行存储到 m_allLines
         QString allText = read.readAll();
-        ui->textEdit->setText(allText);
+        m_allLines = allText.split("\n");
 
+        // 显示当前页（保持当前页码不变）
+        showPage(m_currentPage);
     }
-
 }
 
 
@@ -309,17 +373,14 @@ void Widget::on_btnopenfile_clicked()
             auto openLoad = ui->comboBox->currentText().toStdString();
             read.setCodec(openLoad.c_str());
 
-            // *[优化13] readAll() 比逐行readLine + append更高效
-            // 对于大文件，逐行append会频繁触发UI刷新
-            //QString text = read.readLine();
-            //ui->textEdit->setText(text);
-//            while(!read.atEnd()){
-//                QString text = read.readLine();
-//                //ui->textEdit->setText(text);
-//                ui->textEdit->append(text);
-//            }
+            // *[优化13] 使用分页加载，避免大文件卡顿
+            // 读取所有行存储到 m_allLines
             QString allText = read.readAll();
-            ui->textEdit->setText(allText);
+            m_allLines = allText.split("\n");
+
+            // 显示第一页
+            m_currentPage = 0;
+            showPage(0);
 
             // 读取完后重新连接textChanged信号
             connect(ui->textEdit, &QTextEdit::textChanged, this, &Widget::onTextChanged);
@@ -499,6 +560,31 @@ void Widget::on_CursorPositionChanged()
 //   2. 用 textEdit->find(keyword) 查找下一个
 //   3. 用 QTextEdit::ExtraSelection 高亮所有匹配项
 // ============================================================
+
+
+//为什么要分两步？
+//因为FindDialog 和 Widget 是两个独立的类，它们不能直接互相访问对方的控件。
+
+//如果直接在按钮点击时做高亮
+// 在 FindDialog 里
+//connect(findNextBtn, &QPushButton::clicked, this, [this](){
+//    // 问题：FindDialog 里没有 ui->textEdit
+//    // FindDialog 不知道主窗口的文本框在哪
+//    ui->textEdit->find(...);  // ❌ 找不到 ui
+//});
+//FindDialog 只是一个弹窗，它不知道主窗口有什么控件。
+
+//正确的做法：分工明确
+//FindDialog（弹窗）
+//  ├── 职责：收集用户输入（搜索文字）
+//  ├── 用户点按钮 → 调用 accept() → 关闭弹窗 → 发出 accepted 信号
+//  └── 不负责：查找和高亮（它不知道文本框在哪）
+
+//Widget（主窗口）
+//  ├── 职责：监听 accepted 信号
+//  ├── 收到信号 → 取到用户输入 → 执行查找和高亮
+//  └── 负责：实际的查找逻辑（它有 ui->textEdit）
+// 因为查找显示高亮是在ui->textEdit里显示出来的
 void Widget::onFind()
 {
     static FindDialog *findDialog = nullptr;  // 静态变量，保持对话框状态
@@ -507,9 +593,12 @@ void Widget::onFind()
         findDialog = new FindDialog(this);
 
         // [重点记] 查找下一个：高亮所有匹配 + 光标跳到下一个
+        //connect(发送者, &发送者类::信号, 接收者, &接收者类::槽函数);
+        //前面finddialog.cpp里还有个connect(findNextBtn, &QPushButton::clicked, this, &QDialog::accept);
+        //相当于connect(findDialog,&QDialog::accepted,this,&QWidget::onAccept){
         connect(findDialog, &QDialog::accepted, this, [this](){
             QString searchText = findDialog->getSearchText();
-            if(searchText.isEmpty()) return;
+            if(searchText.isEmpty()) return;  //跳出 lambda（匿名函数）
 
             m_lastSearchText = searchText;  // 记住搜索文本
 
@@ -551,6 +640,7 @@ void Widget::onFind()
     findDialog->raise();
     findDialog->activateWindow();
 }
+
 
 void Widget::onReplace()
 {
@@ -606,5 +696,63 @@ void Widget::onReplace()
     replaceDialog->raise();
     replaceDialog->activateWindow();
 }
+
+// ===== 分页功能实现 =====
+
+// [重点记] 显示指定页的内容
+void Widget::showPage(int page)
+{
+    if(m_allLines.isEmpty()) return;
+
+    int totalPages = (m_allLines.count() + m_linesPerPage - 1) / m_linesPerPage;  // 计算总页数
+
+    // 页码范围检查
+    if(page < 0) page = 0;
+    if(page >= totalPages) page = totalPages - 1;
+
+    m_currentPage = page;
+
+    // 计算当前页的起始行和结束行
+    int start = page * m_linesPerPage;
+    int end = start + m_linesPerPage;
+    if(end > m_allLines.count()) end = m_allLines.count();
+
+    // 构建当前页的文本
+    QString pageText;
+    for(int i = start; i < end; i++) {
+        pageText += m_allLines[i] + "\n";
+    }
+
+    // 断开textChanged信号，避免触发标题加*
+    disconnect(ui->textEdit, &QTextEdit::textChanged, this, &Widget::onTextChanged);
+
+    // 显示当前页
+    ui->textEdit->setText(pageText);
+
+    // 重新连接textChanged信号
+    connect(ui->textEdit, &QTextEdit::textChanged, this, &Widget::onTextChanged);
+
+    // 在状态栏显示页码信息
+    int currentLine = start + 1;
+    int totalLines = m_allLines.count();
+    ui->horAndver->setText(QString("第%1行/共%2行 | 第%3页/共%4页")
+                           .arg(currentLine)
+                           .arg(totalLines)
+                           .arg(page + 1)
+                           .arg(totalPages));
+}
+
+// [重点记] 下一页
+void Widget::nextPage()
+{
+    showPage(m_currentPage + 1);
+}
+
+// [重点记] 上一页
+void Widget::prevPage()
+{
+    showPage(m_currentPage - 1);
+}
+
 
 

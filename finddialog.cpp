@@ -73,3 +73,4 @@ bool FindDialog::isCaseSensitive() const
 
 // 前面的 const：返回值是只读的（很少用）
 //const QString getSearchText();   // 返回的字符串你不能改
+

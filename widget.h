@@ -26,6 +26,9 @@
 #include <QMenu>     // 菜单
 #include <QAction>   // 菜单项
 #include <QCloseEvent>  // 关闭事件
+#include <QTextOption>  // 自动换行模式
+#include <QKeyEvent>    // 键盘事件（用于翻页）
+#include <QShortcut>    // 快捷键（用于翻页）
 // [优化1] 头文件精简: 只保留必要的头文件，其他放到.cpp中
 // [优化2] 移除 <iostream>，Qt项目使用 qDebug/qInfo 替代 cout
 // [优化3] <QDialog>/<QString>/<QFileDialog>/<QObject> 移到.cpp按需包含
@@ -85,6 +88,16 @@ private:
     //    │                         │     │ QComboBox *comboBox │
     //    └─────────────────────────┘     └─────────────────────┘
     QString m_lastSearchText;
+
+    // ===== 分页加载 =====
+    QStringList m_allLines;      // 存储所有行
+    int m_currentPage = 0;       // 当前页码（从0开始）
+    int m_linesPerPage = 50;     // 每页显示的行数（可根据字体大小调整）
+
+    void showPage(int page);     // 显示指定页
+    void nextPage();             // 下一页
+    void prevPage();             // 上一页
+
 signals:
     //void
     // [优化10] signals 区块为空可以删除，不要留注释占位
