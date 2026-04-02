@@ -5,6 +5,7 @@
 #include <QTextEdit>
 #include <QTextCursor>
 #include <QTextDocument>
+#include <QListWidget>  // 列表控件（用于目录）
 
 
 
@@ -42,8 +43,14 @@ Widget::Widget(QWidget *parent)
     connect(ui->textEdit, &QTextEdit::cursorPositionChanged, this, &Widget::on_CursorPositionChanged);
     // 优点: 编译期检查参数类型，避免运行时才发现连接失败
 
-    // [优化2] 建议初始化时设置窗口标题和默认编码
+    // [优化2] 设置窗口标题和初始大小
     this->setWindowTitle("小刘记事本");
+    this->resize(800, 1200);  // 设置窗口初始大小：宽800，高1200
+
+    // [重点记] 设置 textEdit 初始字体大小为12
+    QFont font = ui->textEdit->font();
+    font.setPointSize(12);
+    ui->textEdit->setFont(font);
 
 
 
@@ -182,8 +189,8 @@ Widget::Widget(QWidget *parent)
     largeFont->setCheckable(true);
     xlargeFont->setCheckable(true);
 
-    // 默认选中"中"
-    mediumFont->setChecked(true);
+    // 默认选中"小 (12号)"，和 textEdit 初始字体一致
+    smallFont->setChecked(true);
 
     // [重点记] 使用QActionGroup让它们互斥（只能选一个）
     // 创建互斥组
@@ -239,12 +246,34 @@ Widget::Widget(QWidget *parent)
     QShortcut *nextPageShortcut2 = new QShortcut(QKeySequence(Qt::Key_PageDown), this);
     QShortcut *prevPageShortcut2 = new QShortcut(QKeySequence(Qt::Key_PageUp), this);
 
-    connect(nextPageShortcut, &QShortcut::activated, this, &Widget::nextPage);
-    connect(prevPageShortcut, &QShortcut::activated, this, &Widget::prevPage);
-    connect(nextPageShortcut2, &QShortcut::activated, this, &Widget::nextPage);
-    connect(prevPageShortcut2, &QShortcut::activated, this, &Widget::prevPage);
+    // [重点记] 根据模式调用不同函数：章节模式调用 nextChapter，普通模式调用 nextPage
+    connect(nextPageShortcut, &QShortcut::activated, this, [this](){
+        if(m_chapterMode) nextChapter(); else nextPage();
+    });
+    connect(prevPageShortcut, &QShortcut::activated, this, [this](){
+        if(m_chapterMode) prevChapter(); else prevPage();
+    });
+    connect(nextPageShortcut2, &QShortcut::activated, this, [this](){
+        if(m_chapterMode) nextChapter(); else nextPage();
+    });
+    connect(prevPageShortcut2, &QShortcut::activated, this, [this](){
+        if(m_chapterMode) prevChapter(); else prevPage();
+    });
 
+    // ===== 目录按钮（放在底部状态栏左边） =====
+    QPushButton *tocButton = new QPushButton("目录", this);
+    tocButton->setMinimumSize(60, 30);
+    ui->horizontalLayout_2->insertWidget(0, tocButton);  // 插入到第0个位置（最左边）
+    connect(tocButton, &QPushButton::clicked, this, &Widget::showChapterMenu);
 
+    QMenu *themeMeum = menuBar->addMenu("主题(&T)");
+    QAction *normalAction = themeMeum->addAction("普通模式");
+    QAction *eyeAction = themeMeum->addAction("护眼模式");
+    QAction *darkAction = themeMeum->addAction("深色模式");
+
+    connect(normalAction,&QAction::triggered,this,[this](){ setTheme(0); });
+    connect(eyeAction,&QAction::triggered,this,[this](){ setTheme(1); });
+    connect(darkAction,&QAction::triggered,this,[this](){ setTheme(2); });
 }
 
 // ===== onTextChanged：文本变化时触发 =====
@@ -378,9 +407,17 @@ void Widget::on_btnopenfile_clicked()
             QString allText = read.readAll();
             m_allLines = allText.split("\n");
 
-            // 显示第一页
-            m_currentPage = 0;
-            showPage(0);
+            // [重点记] 解析章节
+            parseChapters();
+
+            if(m_chapterMode) {
+                // 章节模式：显示第一章
+                showChapter(0);
+            } else {
+                // 普通模式：显示第一页
+                m_currentPage = 0;
+                showPage(0);
+            }
 
             // 读取完后重新连接textChanged信号
             connect(ui->textEdit, &QTextEdit::textChanged, this, &Widget::onTextChanged);
@@ -519,26 +556,40 @@ void Widget::on_btnclosefile_clicked()
 void Widget::on_CursorPositionChanged()
 {
     QTextCursor cursor = ui->textEdit->textCursor();
-    // *[优化24] qDebug可删除，只保留UI显示即可
 
-    // [重点记] 分页模式下显示行列+页码，普通模式只显示行列
+    // [重点记] 章节模式显示章节信息，分页模式显示页码，普通模式只显示行列
     if(!m_allLines.isEmpty()) {
-        // 分页模式：计算真实行号（当前页起始行 + 页内行号）
-        int realLine = m_currentPage * m_linesPerPage + cursor.blockNumber() + 1;
         int columnNum = cursor.columnNumber() + 1;
-        int totalPages = (m_allLines.count() + m_linesPerPage - 1) / m_linesPerPage;
 
-        QString text = QString("第%1行 第%2列 | 第%3页/共%4页")
-                       .arg(realLine)
-                       .arg(columnNum)
-                       .arg(m_currentPage + 1)
-                       .arg(totalPages);
-        ui->horAndver->setText(text);
+        if(m_chapterMode && !m_chapters.isEmpty()) {
+            // 章节模式：显示章节信息
+            Chapter chapter = m_chapters[m_currentChapter];
+            int realLine = chapter.startLine + cursor.blockNumber() + 1;  // 真实行号
+
+            QString text = QString("第%1行 第%2列 | %3 (%4/%5)")
+                           .arg(realLine)
+                           .arg(columnNum)
+                           .arg(chapter.name)           // 章节名
+                           .arg(m_currentChapter + 1)   // 当前章节
+                           .arg(m_chapters.count());    // 总章节
+            ui->horAndver->setText(text);
+        } else {
+            // 普通分页模式：显示行列+页码
+            int realLine = m_currentPage * m_linesPerPage + cursor.blockNumber() + 1;
+            int totalPages = (m_allLines.count() + m_linesPerPage - 1) / m_linesPerPage;
+
+            QString text = QString("第%1行 第%2列 | 第%3页/共%4页")
+                           .arg(realLine)
+                           .arg(columnNum)
+                           .arg(m_currentPage + 1)
+                           .arg(totalPages);
+            ui->horAndver->setText(text);
+        }
     } else {
-        // 普通模式：只显示行列
-        QString blockNum = QString::number(cursor.blockNumber() + 1);
-        QString columnNum = QString::number(cursor.columnNumber() + 1);
-        QString text = QString("第%1行 第%2列").arg(blockNum).arg(columnNum);
+        // 没有文件：只显示行列
+        QString text = QString("第%1行 第%2列")
+                       .arg(cursor.blockNumber() + 1)
+                       .arg(cursor.columnNumber() + 1);
         ui->horAndver->setText(text);
     }
 }
@@ -759,5 +810,153 @@ void Widget::prevPage()
     showPage(m_currentPage - 1);
 }
 
+// ===== 章节分页实现 =====
+
+// [重点记] 解析章节
+void Widget::parseChapters()
+{
+    m_chapters.clear();
+
+    // 正则表达式：匹配章节标题
+    // 支持格式：第1章、第一章、Chapter 1、序章、楔子、尾声、5.标题、1. 第一章
+    QRegularExpression re("^(第.{1,5}章|第.{1,5}节|Chapter\\s*\\d+|序章|楔子|尾声|\\d+\\.\\s*.+)");
+
+    for(int i = 0; i < m_allLines.count(); i++) {
+        QString line = m_allLines[i].trimmed();
+        QRegularExpressionMatch match = re.match(line);
+
+        if(match.hasMatch()) {
+            // 找到新章节
+            Chapter chapter;
+            chapter.name = line;           // 章节名
+            chapter.startLine = i;         // 起始行
+            chapter.endLine = m_allLines.count() - 1;  // 先默认设定该章到文件末尾
+
+            // 更新上一章的结束行
+            if(!m_chapters.isEmpty()) {
+                m_chapters.last().endLine = i - 1;
+            }
+
+            m_chapters.append(chapter);
+        }
+    }
+
+    // 如果找到了章节，启用章节模式
+    if(!m_chapters.isEmpty()) {
+        m_chapterMode = true;
+        m_currentChapter = 0;
+        qDebug() << "找到" << m_chapters.count() << "个章节";
+    } else {
+        m_chapterMode = false;
+        qDebug() << "未找到章节，使用普通分页模式";
+    }
+}
+
+// [重点记] 显示指定章节
+void Widget::showChapter(int index)
+{
+    if(m_chapters.isEmpty()) return;
+
+    // 页码范围检查
+    if(index < 0) index = 0;
+    if(index >= m_chapters.count()) index = m_chapters.count() - 1;
+
+    m_currentChapter = index;
+    Chapter chapter = m_chapters[index];
+
+    // 构建章节内容
+    QString text;
+    for(int i = chapter.startLine; i <= chapter.endLine; i++) {
+        text += m_allLines[i] + "\n";
+    }
+
+    // 断开信号，避免触发标题加*
+    disconnect(ui->textEdit, &QTextEdit::textChanged, this, &Widget::onTextChanged);
+    ui->textEdit->setText(text);
+    connect(ui->textEdit, &QTextEdit::textChanged, this, &Widget::onTextChanged);
+}
+
+// [重点记] 下一章
+void Widget::nextChapter()
+{
+    showChapter(m_currentChapter + 1);
+}
+
+// [重点记] 上一章
+void Widget::prevChapter()
+{
+    showChapter(m_currentChapter - 1);
+}
+
+// [重点记] 显示章节目录（点击目录按钮时触发）
+void Widget::showChapterMenu()
+{
+    if(!m_chapterMode || m_chapters.isEmpty()) {
+        //  m_chapterMode = 是否启用章节模式
+        //  m_chapters.isEmpty() = 章节列表是否为空
+        QMessageBox::information(this, "提示", "当前文件没有章节");
+        return;
+    }
+
+    // 创建对话框
+    QDialog dialog(this);               // 创建对话框，父对象是当前窗口
+    dialog.setWindowTitle("章节目录");   // 设置对话框标题
+    dialog.resize(500, 800);  // 对话框大小
+
+    // 创建列表控件listWidget（可滚动）
+    QListWidget *listWidget = new QListWidget(&dialog);
+    listWidget->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);  // 始终显示垂直滚动条
+
+    // 添加所有章节到列表（竖排，一行一个）
+    for(int i = 0; i < m_chapters.count(); i++) {
+        //  m_chapters.count() → 章节总数
+        //  循环从第0个到最后一个章节
+        listWidget->addItem(m_chapters[i].name);
+        //  ↑                         ↑
+        // 往列表添加一行          第i个章节的名字
+    }
+
+    // 当前章节-高亮显示
+    listWidget->setCurrentRow(m_currentChapter);
+
+    // 创建布局
+    QVBoxLayout *layout = new QVBoxLayout(&dialog);
+    layout->addWidget(listWidget);
+    dialog.setLayout(layout);
+
+    // 双击章节跳转
+    connect(listWidget, &QListWidget::itemDoubleClicked, [&](){
+        int index = listWidget->currentRow();
+        showChapter(index);
+        dialog.accept();  // 关闭对话框
+    });
+
+    // 显示对话框
+    dialog.exec();
+}
+
+void Widget::setTheme(int mode){
+    m_themeMode = mode;
+    if(mode == 0){
+        ui->textEdit->setStyleSheet("background-color: white; color: black;");
+    }else if(mode == 1){
+        ui->textEdit->setStyleSheet("background-color: rgb(199, 237, 204); color: rgb(0, 0, 0);");
+    }else if(mode == 2){
+        ui->textEdit->setStyleSheet("background-color: rgb(30, 30, 30); color: rgb(200, 200, 200);");
+    }
+}
 
 
+
+
+void Widget::on_theme_comboBox_currentIndexChanged(int index)
+{
+    m_themeMode = index;
+        if(index == 0){
+            ui->textEdit->setStyleSheet("background-color: white; color: black;");
+        }else if(index == 1){
+            ui->textEdit->setStyleSheet("background-color: rgb(199, 237, 204); color: rgb(0, 0, 0);");
+        }else if(index == 2){
+            ui->textEdit->setStyleSheet("background-color: rgb(30, 30, 30); color: rgb(200, 200, 200);");
+        }
+}

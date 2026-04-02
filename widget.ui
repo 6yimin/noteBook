@@ -259,6 +259,37 @@ QPushButton:pressed {border-image: url(:/icon/c3.png);}
        </property>
        <layout class="QHBoxLayout" name="horizontalLayout_2">
         <item>
+         <widget class="QComboBox" name="theme_comboBox">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="MinimumExpanding">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>0</height>
+           </size>
+          </property>
+          <item>
+           <property name="text">
+            <string>普通模式</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>深色模式</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>护眼模式</string>
+           </property>
+          </item>
+         </widget>
+        </item>
+        <item>
          <spacer name="horizontalSpacer_2">
           <property name="orientation">
            <enum>Qt::Horizontal</enum>
@@ -268,7 +299,7 @@ QPushButton:pressed {border-image: url(:/icon/c3.png);}
           </property>
           <property name="sizeHint" stdset="0">
            <size>
-            <width>40</width>
+            <width>30</width>
             <height>20</height>
            </size>
           </property>
@@ -277,7 +308,7 @@ QPushButton:pressed {border-image: url(:/icon/c3.png);}
         <item>
          <widget class="QLabel" name="horAndver">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+           <sizepolicy hsizetype="Preferred" vsizetype="MinimumExpanding">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -290,7 +321,7 @@ QPushButton:pressed {border-image: url(:/icon/c3.png);}
         <item>
          <widget class="QComboBox" name="comboBox">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+           <sizepolicy hsizetype="Preferred" vsizetype="MinimumExpanding">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>

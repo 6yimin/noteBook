@@ -29,6 +29,7 @@
 #include <QTextOption>  // 自动换行模式
 #include <QKeyEvent>    // 键盘事件（用于翻页）
 #include <QShortcut>    // 快捷键（用于翻页）
+#include <QRegularExpression>  // 正则表达式（用于识别章节）
 // [优化1] 头文件精简: 只保留必要的头文件，其他放到.cpp中
 // [优化2] 移除 <iostream>，Qt项目使用 qDebug/qInfo 替代 cout
 // [优化3] <QDialog>/<QString>/<QFileDialog>/<QObject> 移到.cpp按需包含
@@ -71,6 +72,8 @@ private slots:
     void onFind();                  // 查找功能
     void onReplace();               // 替换功能
 
+    void on_theme_comboBox_currentIndexChanged(int index);
+
 protected:
     void closeEvent(QCloseEvent *event) override;  // 重写关闭事件
 
@@ -97,6 +100,28 @@ private:
     void showPage(int page);     // 显示指定页
     void nextPage();             // 下一页
     void prevPage();             // 上一页
+
+    // ===== 章节分页 =====
+    struct Chapter {
+        QString name;      // 章节名："第1章 开始"
+        int startLine;     // 起始行号
+        int endLine;       // 结束行号
+    };
+
+    QList<Chapter> m_chapters;       // 章节列表
+    int m_currentChapter = 0;        // 当前章节索引
+    bool m_chapterMode = false;      // 是否启用章节模式
+
+    void parseChapters();            // 解析章节
+    void showChapter(int index);     // 显示指定章节
+    void nextChapter();              // 下一章
+    void prevChapter();              // 上一章
+
+    void showChapterMenu();          // 显示章节目录
+
+    //思考：主题状态是窗口的 “属性”，外部不需要访问，所以放private区块，初始值设为 0（默认普通模式）。
+    int m_themeMode;
+    void setTheme(int mode);
 
 signals:
     //void
