@@ -7,7 +7,8 @@
 #include <QTextDocument>
 #include <QListWidget>  // 列表控件（用于目录）
 #include <QFontComboBox>
-
+#include <QApplication>  // 新增：获取系统DPI/字体缩放
+#include <QScreen>       // 新增：获取屏幕DPI
 
 
 //这是 Widget 类里面的 Widget 函数
@@ -85,25 +86,95 @@ Widget::Widget(QWidget *parent)
     // [重点记] QMenuBar创建菜单栏, QMenu创建下拉菜单, QAction创建菜单项
     QMenuBar *menuBar = new QMenuBar();                  // 创建菜单栏（不写this，后面手动放到布局里）
 
+//    // 1. 强制固定菜单栏高度为40px（满足你最初的需求）
+//    int menuHeight = 40;
+//    menuBar->setFixedHeight(menuHeight);  // 固定高度，不再留余量
+//    ui->widget_2->setFixedHeight(menuHeight); // 容器高度和菜单栏完全一致
+
+//    // 2. 字体大小固定为14px（视觉舒适，也可根据需要调整为15/16）
+//    // 若要适配分辨率，可改为：int menuFontSize = qRound(14 * QApplication::primaryScreen()->devicePixelRatioF());
+//    int menuFontSize = 14;
+
+//    // 3. 优化样式表：高度占满+字体放大+垂直居中
+//    QString menuStyle = QString(R"(
+//        /* 菜单栏：高度占满+背景+边框 */
+//        QMenuBar {
+//            font-size: %1px;       /* 放大字体，视觉清晰 */
+//            background-color: #f8f8f8;
+//            border: 1px solid #e0e0e0;
+//            spacing: 0px;          /* 去掉菜单项之间的默认间距 */
+//        }
+//        /* 一级菜单项（文件/编辑/帮助）：高度占满+垂直居中+足够内边距 */
+//        QMenuBar::item {
+//            padding: 0 20px;       /* 加大左右内边距，点击区域更宽 */
+//            height: %2px;          /* 和菜单栏高度完全一致 */
+//            align-items: center;   /* 文字垂直居中 */
+//            display: flex;         /* 开启flex布局，保证垂直居中生效 */
+//            justify-content: center; /* 文字水平居中 */
+//        }
+//        QMenuBar::item:selected {
+//            background-color: #e8e8e8;
+//            border-radius: 2px;
+//        }
+//        /* 下拉菜单：字体和一级菜单一致，避免过小 */
+//        QMenu {
+//            font-size: %1px;
+//            padding: 4px 0;
+//            min-width: 120px;
+//            border: 1px solid #e0e0e0;
+//        }
+//        /* 下拉菜单项：加大内边距，文字不挤 */
+//        QMenu::item {
+//            padding: 8px 25px;     /* 上下8px，左右25px，视觉更舒适 */
+//            min-height: 30px;      /* 下拉项高度加大 */
+//        }
+//        QMenu::item:selected {
+//            background-color: #e8e8e8;
+//        }
+//    )").arg(menuFontSize)    // 字体大小（14px）
+//      .arg(menuHeight);      // 菜单栏高度（40px）
+
+//    menuBar->setStyleSheet(menuStyle);
+
+    // 4. 布局：强制菜单栏占满widget_2的宽度和高度
+//    ui->horizontalLayout->insertWidget(0, menuBar);
+//    ui->horizontalLayout->setContentsMargins(0, 0, 0, 0);
+//    ui->horizontalLayout->setSpacing(0); // 去掉布局内边距
+//    ui->horizontalLayout->setStretch(0, 1); // 让菜单栏占满布局宽度
+
+    // 替换原来的 setStyleSheet
+    menuBar->setStyleSheet(
+        "QMenuBar { min-height: 40px; max-height: 40px; } "  // 菜单栏高度
+        "QMenuBar::item { padding: 0px 3px; font-size: 14px; }" // 菜单项：上下 0px 左右边距0px，字号 14
+    );
+
     // ===== 菜单栏高度设置 =====
     // [第1版代码] 固定高度38，但不同屏幕显示效果不同
     //menuBar->setFixedHeight(38);
 
     // [第2版代码] 设置菜单栏固定高度40，和widget_2一致
-    menuBar->setFixedHeight(40);  // 固定高度40，和widget_2一样
-    ui->widget_2->setFixedHeight(40);  // widget_2也固定40
+    //menuBar->setStyleSheet("QMenuBar { min-height: 40px; max-height: 40px; }");
+    //menuBar->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
+    //menuBar->setFixedHeight(40);  // 固定高度40，和widget_2一样
+    //ui->widget_2->setFixedHeight(40);  // widget_2也固定40
 
     // ===== 菜单栏位置 =====
-    ui->horizontalLayout->insertWidget(0, menuBar);  // 0=最左边，改成1=第二个位置
+    // [重点记] 把菜单栏放到widget_2的布局里
+    ui->horizontalLayout->insertWidget(0, menuBar);  // 把menuBar插入到horizontalLayout的第0个位置（最左边）
+    //ui->horizontalLayout->addWidget(menuBar);  // 0=最左边，改成1=第二个位置
 
     // ===== 布局设置（影响所有控件） =====
-    ui->horizontalLayout->setContentsMargins(0, 0, 0, 0);  // 内边距：上 右 下 左
-    ui->horizontalLayout->setSpacing(0);                      // 控件之间的间距
+    //ui->horizontalLayout->setContentsMargins(0, 0, 0, 0);  // 内边距：上 右 下 左
+    //ui->horizontalLayout->setSpacing(0);                      // 控件之间的间距
 
     // [重点记] addMenu("文件(&F)") 添加菜单，(&F)表示Alt+F快捷键
     QMenu *fileMenu = menuBar->addMenu("文件(&F)");      // 添加"文件"菜单
     QMenu *editMenu = menuBar->addMenu("编辑(&E)");      // 添加"编辑"菜单
     QMenu *helpMenu = menuBar->addMenu("帮助(&H)");      // 添加"帮助"菜单
+
+    //fileMenu->setFixedHeight(40);
+    //editMenu->setFixedHeight(40);
+    //helpMenu->setFixedHeight(40);
 
     // ===== 文件菜单 =====
     // [重点记] 三步走：1.创建菜单项 2.设快捷键 3.绑定函数
@@ -165,8 +236,6 @@ Widget::Widget(QWidget *parent)
         ui->textEdit->setWordWrapMode(checked ? QTextOption::WrapAtWordBoundaryOrAnywhere : QTextOption::NoWrap);
     });  // [重点记] 注意：lambda 结尾是 }); 不是 }
 
-    // [重点记] 把菜单栏放到widget_2的布局里
-    ui->horizontalLayout->insertWidget(0, menuBar);  // 把menuBar插入到horizontalLayout的第0个位置（最左边）
 
     // ===== 任务2：文件修改检测 =====
     // [重点记] 监听textChanged信号，内容变化时标题加*
@@ -286,8 +355,13 @@ Widget::Widget(QWidget *parent)
                                    //currentFontChanged(const QFont &font);
     connect(fontbox, &QFontComboBox::currentFontChanged, this, [this](const QFont &font){
         // 用户一下拉选择新字体，这个 lambda 就会立刻执行
+        QFont newFont = font;
+        int currentSize = ui->textEdit->font().pointSize();
+        if(currentSize <= 0) currentSize = 12;
+        newFont.setPointSize(currentSize);
+
         // font 参数就是用户刚刚选中的那个字体
-        ui->textEdit->setFont(font);
+        ui->textEdit->setFont(newFont);
     });
 
 
