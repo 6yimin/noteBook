@@ -6,6 +6,7 @@
 #include <QTextCursor>
 #include <QTextDocument>
 #include <QListWidget>  // 列表控件（用于目录）
+#include <QFontComboBox>
 
 
 
@@ -271,9 +272,25 @@ Widget::Widget(QWidget *parent)
     QAction *eyeAction = themeMeum->addAction("护眼模式");
     QAction *darkAction = themeMeum->addAction("深色模式");
 
-    connect(normalAction,&QAction::triggered,this,[this](){ setTheme(0); });
-    connect(eyeAction,&QAction::triggered,this,[this](){ setTheme(1); });
-    connect(darkAction,&QAction::triggered,this,[this](){ setTheme(2); });
+//    connect(normalAction,&QAction::triggered,this,[this](){ setTheme(0); });
+//    connect(eyeAction,&QAction::triggered,this,[this](){ setTheme(1); });
+//    connect(darkAction,&QAction::triggered,this,[this](){ setTheme(2); });
+    connect(normalAction,&QAction::triggered,this,[this](){ ui->theme_comboBox->setCurrentIndex(0); });
+    connect(eyeAction,&QAction::triggered,this,[this](){ ui->theme_comboBox->setCurrentIndex(1); });
+    connect(darkAction,&QAction::triggered,this,[this](){ ui->theme_comboBox->setCurrentIndex(2); });
+
+    QFontComboBox *fontbox = new QFontComboBox(this);
+    fontbox->setFixedWidth(160);
+    fontbox->setFixedHeight(40);
+    ui->horizontalLayout->addWidget(fontbox);
+                                   //currentFontChanged(const QFont &font);
+    connect(fontbox, &QFontComboBox::currentFontChanged, this, [this](const QFont &font){
+        // 用户一下拉选择新字体，这个 lambda 就会立刻执行
+        // font 参数就是用户刚刚选中的那个字体
+        ui->textEdit->setFont(font);
+    });
+
+
 }
 
 // ===== onTextChanged：文本变化时触发 =====
@@ -427,6 +444,15 @@ void Widget::on_btnopenfile_clicked()
             //file.close();
         }
     }
+
+
+
+//        // ...打开文件...
+
+//        // 用 m_themeMode 恢复主题
+//        setTheme(m_themeMode);
+
+
 }
 
 
@@ -935,16 +961,16 @@ void Widget::showChapterMenu()
     dialog.exec();
 }
 
-void Widget::setTheme(int mode){
-    m_themeMode = mode;
-    if(mode == 0){
-        ui->textEdit->setStyleSheet("background-color: white; color: black;");
-    }else if(mode == 1){
-        ui->textEdit->setStyleSheet("background-color: rgb(199, 237, 204); color: rgb(0, 0, 0);");
-    }else if(mode == 2){
-        ui->textEdit->setStyleSheet("background-color: rgb(30, 30, 30); color: rgb(200, 200, 200);");
-    }
-}
+//void Widget::setTheme(int mode){
+//    m_themeMode = mode;
+//    if(mode == 0){
+//        ui->textEdit->setStyleSheet("background-color: white; color: black;");
+//    }else if(mode == 1){
+//        ui->textEdit->setStyleSheet("background-color: rgb(199, 237, 204); color: rgb(0, 0, 0);");
+//    }else if(mode == 2){
+//        ui->textEdit->setStyleSheet("background-color: rgb(30, 30, 30); color: rgb(200, 200, 200);");
+//    }
+//}
 
 
 

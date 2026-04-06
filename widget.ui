@@ -279,12 +279,12 @@ QPushButton:pressed {border-image: url(:/icon/c3.png);}
           </item>
           <item>
            <property name="text">
-            <string>深色模式</string>
+            <string>护眼模式</string>
            </property>
           </item>
           <item>
            <property name="text">
-            <string>护眼模式</string>
+            <string>深色模式</string>
            </property>
           </item>
          </widget>
